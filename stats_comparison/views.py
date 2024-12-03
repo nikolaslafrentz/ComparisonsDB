@@ -5,6 +5,10 @@ import pandas as pd
 from .models import Country, Indicator, StatisticValue
 import json
 from django.db.models import Q
+from django.http import HttpResponse
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+import io
 
 def index(request):
     # Get all available indicators
@@ -89,3 +93,66 @@ def index(request):
             context['error'] = str(e)
     
     return render(request, 'stats_comparison/index.html', context)
+
+def export_to_powerbi(request):
+    """Export data in a PowerBI-compatible format"""
+    try:
+        # Get all statistical values with their related data
+        stats = StatisticValue.objects.select_related('country', 'indicator').all()
+        
+        # Create a list of dictionaries for pandas DataFrame
+        data = []
+        for stat in stats:
+            data.append({
+                'Country': stat.country.name,
+                'Country Code': stat.country.code,
+                'Region': stat.country.region,
+                'Indicator': stat.indicator.name,
+                'Indicator Code': stat.indicator.code,
+                'Year': stat.year,
+                'Value': stat.value
+            })
+        
+        # Convert to pandas DataFrame
+        df = pd.DataFrame(data)
+        
+        # Create Excel file in memory
+        excel_buffer = io.BytesIO()
+        with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+            df.to_excel(writer, sheet_name='WorldBank_Data', index=False)
+        
+        # Prepare the response
+        excel_buffer.seek(0)
+        response = HttpResponse(
+            excel_buffer.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename=worldbank_data.xlsx'
+        
+        return response
+        
+    except Exception as e:
+        return HttpResponse(f"Error exporting data: {str(e)}", status=500)
+
+@api_view(['GET'])
+def powerbi_api(request):
+    """REST API endpoint for PowerBI Direct Query"""
+    try:
+        stats = StatisticValue.objects.select_related('country', 'indicator').all()
+        
+        data = []
+        for stat in stats:
+            data.append({
+                'country': stat.country.name,
+                'country_code': stat.country.code,
+                'region': stat.country.region,
+                'indicator': stat.indicator.name,
+                'indicator_code': stat.indicator.code,
+                'year': stat.year,
+                'value': stat.value
+            })
+            
+        return Response(data)
+        
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)

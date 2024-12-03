@@ -33,12 +33,24 @@ class Command(BaseCommand):
                 for country in countries:
                     try:
                         # Skip aggregate regions and other non-country entries
-                        if not any(country['id'].startswith(prefix) for prefix in 
+                        # Check for both prefix and specific conditions
+                        is_country = (
+                            # Not starting with region/aggregate prefixes
+                            not any(country['id'].startswith(prefix) for prefix in 
                                  ('REG', 'INX', 'EMU', 'EAS', 'ECS', 'EUU', 'ARB', 'CEB', 'CSS', 'EAP', 
                                   'ECA', 'EAR', 'FCS', 'HIC', 'HPC', 'IBD', 'IBT', 'IDA', 'IDB', 'IDX', 
                                   'LAC', 'LCN', 'LDC', 'LIC', 'LMC', 'LMY', 'LTE', 'MEA', 'MIC', 'MNA', 
                                   'NAC', 'OED', 'OSS', 'PRE', 'PSS', 'PST', 'SAS', 'SSA', 'SSF', 'SST', 
-                                  'TEA', 'TEC', 'TLA', 'TMN', 'TSA', 'TSS', 'UMC', 'WLD')):
+                                  'TEA', 'TEC', 'TLA', 'TMN', 'TSA', 'TSS', 'UMC', 'WLD')) and
+                            # Must be exactly 3 characters (standard country code length)
+                            len(country['id']) == 3 and
+                            # Must have a proper region assigned
+                            country.get('region', 'Unknown') != 'Unknown' and
+                            # Additional checks for specific cases
+                            not any(x in country['value'].lower() for x in ['region', 'union', 'income', 'aggregate'])
+                        )
+                        
+                        if is_country:
                             Country.objects.update_or_create(
                                 code=country['id'],
                                 defaults={
@@ -59,11 +71,29 @@ class Command(BaseCommand):
 
         # Step 2: Define and save indicators
         indicators = [
+            # Economic indicators
             ('NY.GDP.PCAP.CD', 'GDP per capita (current US$)'),
+            ('NY.GDP.MKTP.KD.ZG', 'GDP growth (annual %)'),
+            ('FP.CPI.TOTL.ZG', 'Inflation, consumer prices (annual %)'),
+            ('NE.EXP.GNFS.ZS', 'Exports of goods and services (% of GDP)'),
+            ('BX.KLT.DINV.WD.GD.ZS', 'Foreign direct investment, net inflows (% of GDP)'),
+            ('GC.DOD.TOTL.GD.ZS', 'Central government debt (% of GDP)'),
+            
+            # Social indicators
             ('SP.POP.TOTL', 'Population, total'),
+            ('SP.DYN.LE00.IN', 'Life expectancy at birth (years)'),
             ('SE.TER.ENRR', 'School enrollment, tertiary (% gross)'),
             ('SL.UEM.TOTL.ZS', 'Unemployment, total (% of total labor force)'),
-            ('NY.GDP.MKTP.KD.ZG', 'GDP growth (annual %)'),
+            ('SI.POV.GINI', 'GINI index'),
+            ('SH.XPD.CHEX.GD.ZS', 'Current health expenditure (% of GDP)'),
+            ('SP.URB.TOTL.IN.ZS', 'Urban population (% of total)'),
+            
+            # Environmental indicators
+            ('EN.ATM.CO2E.PC', 'CO2 emissions (metric tons per capita)'),
+            ('EG.USE.PCAP.KG.OE', 'Energy use (kg of oil equivalent per capita)'),
+            ('ER.FST.TOTL.ZS', 'Forest area (% of land area)'),
+            ('EG.ELC.ACCS.ZS', 'Access to electricity (% of population)'),
+            ('EN.POP.DNST', 'Population density (people per sq. km)'),
         ]
         
         self.stdout.write('\nStep 2: Saving indicators...')

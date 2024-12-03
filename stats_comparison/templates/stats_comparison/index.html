@@ -7,11 +7,20 @@
         .select2-container {
             width: 100% !important;
         }
+        .export-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
     </style>
 </head>
 <body>
-    <div class="container mt-5">
+    <div class="container mt-5 position-relative">
         <h1 class="mb-4">World Bank Statistics Comparison</h1>
+        
+        <a href="{% url 'stats_comparison:export_powerbi' %}" class="btn btn-success export-btn">
+            Export to PowerBI
+        </a>
         
         {% if error %}
         <div class="alert alert-danger" role="alert">
